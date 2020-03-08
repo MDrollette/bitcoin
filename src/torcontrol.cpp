@@ -730,16 +730,26 @@ void TorController::reconnect_cb(evutil_socket_t fd, short what, void *arg)
 /****** Thread ********/
 static struct event_base *gBase;
 static std::thread torControlThread;
+static std::string torControlAddr;
 
 static void TorControlThread()
 {
-    TorController ctrl(gBase, gArgs.GetArg("-torcontrol", DEFAULT_TOR_CONTROL));
+    TorController ctrl(gBase, torControlAddr);
 
     event_base_dispatch(gBase);
 }
 
 void StartTorControl()
 {
+    std::string torControlArg = gArgs.GetArg("-torcontrol", DEFAULT_TOR_CONTROL);
+    CService torControl;
+    if (Lookup(torControlArg, torControl, 9051, fNameLookup) && torControl.IsValid())
+        torControlAddr = torControl.ToString();
+    if (torControlAddr == "") {
+        LogPrintf("Invalid -torcontrol address or hostname: '%s'\n", torControlArg);
+        return;
+    }
+
     assert(!gBase);
 #ifdef WIN32
     evthread_use_windows_threads();
